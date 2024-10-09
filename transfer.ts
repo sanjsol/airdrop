@@ -4,21 +4,36 @@ import wallet from "./dev-wallet.json"
 
 const from = Keypair.fromSecretKey(new Uint8Array(wallet));
 
-const to = new PublicKey("FDcTQPpfVchTkgwpJpdr3ad1bE6kELr7CLPNzwXLzCu9");
+const to = new PublicKey("127rLjEo5GtfczDVzqAW5exWJfsCFH7qXgJcCsjTPvs5");
 
 const connection = new Connection("https://api.devnet.solana.com");
 
 (async () => {
   try {
+      const balance = await connection.getBalance(from.publicKey);
+      console.log(from.publicKey.toBase58());
+
       const transaction = new Transaction().add(
-          SystemProgram.transfer({
-              fromPubkey: from.publicKey,
-              toPubkey:  to,
-              lamports: LAMPORTS_PER_SOL/100,
-          })
-      );
+        SystemProgram.transfer({
+        fromPubkey: from.publicKey,
+        toPubkey: to,
+        lamports: balance,
+        })
+        );
       transaction.recentBlockhash = (await connection.getLatestBlockhash('confirmed')).blockhash;
       transaction.feePayer = from.publicKey;
+
+      const fee = (await connection.getFeeForMessage(transaction.compileMessage(), 'confirmed')).value || 0;
+
+      transaction.instructions.pop();
+
+      transaction.add(
+        SystemProgram.transfer({
+        fromPubkey: from.publicKey,
+        toPubkey: to,
+        lamports: balance - fee,
+        })
+        );
       
       // Sign transaction, broadcast, and confirm
       const signature = await sendAndConfirmTransaction(
